@@ -3,7 +3,7 @@ import plotly.express as px
 import dash
 import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State, MATCH, ALL
 
 # Cargar los datos
 df = pd.read_excel("FH_areas_interes.xlsx", sheet_name="Sheet1", engine="openpyxl")
@@ -20,13 +20,13 @@ max_year = df["Año - Volumen - Número"].str[:4].astype(int).max()
 rango_fechas = f"{min_year} - {max_year}"
 
 # Inicializar la aplicación Dash con Bootstrap
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])  # Estilo elegante
-server = app.server  # Necesario para Render
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
+server = app.server
 
-# Diseño mejorado con distribución limpia
+# Diseño de la aplicación
 app.layout = dbc.Container([
     
-    # Encabezado con título y estadísticas en una sola línea
+    # Encabezado con título y estadísticas en la esquina superior derecha
     dbc.Row([
         dbc.Col(html.H3("📚 Artículos de la Revista Farmacia Hospitalaria",
                         className="text-left text-primary"), width=8),
@@ -36,7 +36,7 @@ app.layout = dbc.Container([
         ], className="text-end"), width=4)
     ], align="center", className="mb-3"),
 
-    # Botones de categorías compactos
+    # Botones de categorías con resaltado dinámico
     html.H6("📂 Filtrar por Categoría:", className="text-center mt-2 text-secondary"),
     dbc.Row([
         dbc.Col([
@@ -44,7 +44,7 @@ app.layout = dbc.Container([
                 dbc.Button(category, id={"type": "category-button", "index": category},
                            color="secondary", outline=True, className="m-1 btn-sm", n_clicks=0)
                 for category in categorias_unicas
-            ], className="d-flex flex-wrap justify-content-center")
+            ], className="d-flex flex-wrap justify-content-center", id="category-buttons")
         ])
     ], className="mb-2"),
 
@@ -66,24 +66,23 @@ app.layout = dbc.Container([
         ), width=12)
     ], className="mb-4"),
 
-    # Gráfico mejor alineado
+    # Gráfico alineado
     dbc.Row([
         dbc.Col(dcc.Graph(id="categoria-chart"), width=12)
     ])
 ], fluid=True)
 
-# Callback para manejar la selección de categorías
+# Callback para manejar la selección de categorías y actualizar la tabla y el gráfico
 @app.callback(
     [Output("articulos-table", "data"),
-     Output("categoria-chart", "figure")],
-    [Input({"type": "category-button", "index": category}, "n_clicks") for category in categorias_unicas]
+     Output("categoria-chart", "figure"),
+     Output({"type": "category-button", "index": ALL}, "color"),
+     Output({"type": "category-button", "index": ALL}, "outline")],
+    [Input({"type": "category-button", "index": ALL}, "n_clicks")],
+    [State({"type": "category-button", "index": ALL}, "id")]
 )
-def update_dashboard(*btn_clicks):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        selected_categories = []
-    else:
-        selected_categories = [categorias_unicas[i] for i, n in enumerate(btn_clicks) if n % 2 != 0]  # Alterna selección
+def update_dashboard(btn_clicks, button_ids):
+    selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] % 2 != 0]
 
     filtered_df = df.copy()
     if selected_categories:
@@ -101,7 +100,11 @@ def update_dashboard(*btn_clicks):
 
     fig.update_layout(xaxis_tickangle=-45, margin=dict(l=20, r=20, t=50, b=50))
 
-    return filtered_df.to_dict("records"), fig
+    # Cambiar color de botones seleccionados
+    colors = ["primary" if button["index"] in selected_categories else "secondary" for button in button_ids]
+    outlines = [False if button["index"] in selected_categories else True for button in button_ids]
+
+    return filtered_df.to_dict("records"), fig, colors, outlines
 
 if __name__ == "__main__":
     app.run_server(debug=True)
