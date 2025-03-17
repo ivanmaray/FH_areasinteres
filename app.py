@@ -6,12 +6,12 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State, ALL
 
 # Cargar los datos
-df = pd.read_excel("FH_areas_interes.xlsx", sheet_name="Sheet1", engine="openpyxl")
+df = pd.read_excel("FH_areas_interes.xlsx", sheet_name=0, engine="openpyxl")
 
-# Hacer los enlaces clicables
-df["Enlace"] = df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})")
+# Limpieza de datos: eliminar espacios y normalizar las categorías
+df["Categoría"] = df["Categoría"].str.strip()
 
-# Obtener lista única de categorías
+# Obtener lista de categorías únicas (sin duplicados)
 categorias_unicas = sorted(df["Categoría"].unique())
 
 # Obtener rango de fechas de los artículos
@@ -36,7 +36,7 @@ app.layout = dbc.Container([
         ], className="text-end"), width=4)
     ], align="center", className="mb-3"),
 
-    # Botones de categorías más compactos
+    # Botones de categorías sin duplicados
     html.H6("📂 Filtrar por Categoría:", className="text-center mt-2 text-secondary"),
     dbc.Row([
         dbc.Col([
@@ -45,7 +45,7 @@ app.layout = dbc.Container([
                            color="secondary", outline=True,
                            className="m-1 px-2 py-1 btn-sm text-truncate",
                            style={"fontSize": "11px", "minWidth": "80px", "maxWidth": "150px"})
-                for category in categorias_unicas
+                for category in categorias_unicas  # Aseguramos que no hay duplicados
             ], className="d-flex flex-wrap justify-content-center gap-1", id="category-buttons")
         ])
     ], className="mb-2"),
