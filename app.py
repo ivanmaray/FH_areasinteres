@@ -82,32 +82,28 @@ app.layout = dbc.Container([
      Output({"type": "category-button", "index": ALL}, "outline")],
     [Input({"type": "category-button", "index": ALL}, "n_clicks"),
      Input("categoria-chart", "clickData")],
-    [State({"type": "category-button", "index": ALL}, "id"),
-     State("categoria-chart", "clickData")]
+    [State({"type": "category-button", "index": ALL}, "id")]
 )
-def update_dashboard(btn_clicks, clickData, button_ids, previous_clickData):
-    # Detectar selección desde el gráfico
-    clicked_category = None
-    if clickData and "points" in clickData:
-        clicked_category = clickData["points"][0]["y"]  # Obtener categoría seleccionada en el gráfico
-
-    # Manejo de categorías seleccionadas desde botones
+def update_dashboard(btn_clicks, clickData, button_ids):
+    # Lista de categorías seleccionadas desde los botones
     selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] % 2 != 0]
 
-    # Si se hace clic en el gráfico, agregar esa categoría a la selección
-    if clicked_category:
+    # Si se ha hecho clic en el gráfico, seleccionar la categoría correspondiente
+    if clickData and "points" in clickData:
+        clicked_category = clickData["points"][0]["y"]
         if clicked_category in selected_categories:
             selected_categories.remove(clicked_category)  # Si ya estaba seleccionada, la quitamos
         else:
             selected_categories.append(clicked_category)  # Si no estaba, la agregamos
 
+    # Filtrar datos
     filtered_df = df.copy()
     if selected_categories:
         filtered_df = filtered_df[filtered_df["Categoría"].isin(selected_categories)]
 
     # Determinar qué gráfico mostrar
     if len(selected_categories) == 1:
-        # Si solo hay 1 categoría seleccionada, mostrar gráfico por número de revista
+        # Gráfico de evolución de artículos por número de revista si solo hay 1 categoría seleccionada
         time_counts = filtered_df["Año - Volumen - Número"].value_counts().reset_index()
         time_counts.columns = ["Número de Revista", "Número de Artículos"]
         time_counts = time_counts.sort_values(by="Número de Revista")
@@ -119,7 +115,7 @@ def update_dashboard(btn_clicks, clickData, button_ids, previous_clickData):
                       template="plotly_white")
 
     else:
-        # Si no hay selección o hay múltiples categorías, mostrar gráfico de barras por categoría
+        # Gráfico de barras por categoría si no hay selección o hay múltiples categorías
         category_counts = df["Categoría"].value_counts().reset_index()
         category_counts.columns = ["Categoría", "Número de Artículos"]
         
