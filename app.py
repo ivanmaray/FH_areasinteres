@@ -8,17 +8,18 @@ from dash.dependencies import Input, Output
 df = pd.read_excel("FH_areas_interes.xlsx", sheet_name="Sheet1", engine="openpyxl")
 
 # Hacer los enlaces clicables
-df["Enlace"] = df["Enlace"].apply(lambda x: f"[Ver artículo]({x})")
+df["Enlace"] = df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})")
 
 # Inicializar la aplicación Dash
 app = dash.Dash(__name__)
 server = app.server  # Necesario para Render
 
-# Diseño de la aplicación
+# Diseño de la aplicación mejorado
 app.layout = html.Div([
-    html.H1("📚 Artículos de la Revista Farmacia Hospitalaria", style={'textAlign': 'center', 'color': '#4A90E2'}),
+    html.H1("📚 Artículos de la Revista Farmacia Hospitalaria 📚",
+            style={'textAlign': 'center', 'color': '#2C3E50', 'fontSize': '28px'}),
 
-    html.Label("🔎 Filtrar por Categoría:", style={'fontSize': '18px'}),
+    html.Label("🔎 Filtrar por Categoría:", style={'fontSize': '18px', 'fontWeight': 'bold'}),
     dcc.Dropdown(
         id="categoria-filter",
         options=[{"label": cat, "value": cat} for cat in sorted(df["Categoría"].unique())],
@@ -27,6 +28,7 @@ app.layout = html.Div([
         style={'marginBottom': '20px'}
     ),
 
+    # Tabla mejorada
     dash_table.DataTable(
         id="articulos-table",
         columns=[
@@ -35,14 +37,25 @@ app.layout = html.Div([
             {"name": "Categoría", "id": "Categoría"},
             {"name": "Enlace", "id": "Enlace", "presentation": "markdown"},
         ],
-        style_table={'overflowX': 'auto', 'marginBottom': '20px'},
-        style_cell={'textAlign': 'left', 'padding': '10px', 'fontSize': '14px'},
-        style_header={'backgroundColor': '#4A90E2', 'color': 'white', 'fontWeight': 'bold'},
+        style_table={'overflowX': 'auto', 'width': '100%', 'minWidth': '100%'},
+        style_cell={
+            'textAlign': 'left',
+            'padding': '8px',
+            'whiteSpace': 'normal',
+            'fontSize': '14px',
+            'maxWidth': '250px',  # Limita el ancho para que el enlace sea visible
+            'overflow': 'hidden',
+            'textOverflow': 'ellipsis'
+        },
+        style_header={'backgroundColor': '#2C3E50', 'color': 'white', 'fontWeight': 'bold'},
         page_size=10,
         markdown_options={"link_target": "_blank"}  # Abre enlaces en nueva pestaña
     ),
 
-    dcc.Graph(id="categoria-chart")
+    # Contenedor del gráfico con ajuste automático
+    html.Div([
+        dcc.Graph(id="categoria-chart")
+    ], style={'width': '100%', 'display': 'flex', 'justifyContent': 'center'})
 ])
 
 # Callback para actualizar la tabla y el gráfico
@@ -66,7 +79,7 @@ def update_dashboard(selected_categories):
                  color_continuous_scale="Blues",
                  template="simple_white")
 
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, margin=dict(l=20, r=20, t=50, b=50))
 
     return filtered_df.to_dict("records"), fig
 
