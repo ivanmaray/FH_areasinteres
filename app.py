@@ -44,7 +44,7 @@ app.layout = dbc.Container([
                 dbc.Button(category, id={"type": "category-button", "index": category},
                            color="secondary", outline=True,
                            className="m-1 px-2 py-1 btn-sm text-truncate",
-                           style={"fontSize": "11px", "minWidth": "80px"})  # Tamaño reducido, botones pequeños
+                           style={"fontSize": "11px", "minWidth": "80px", "maxWidth": "150px"})
                 for category in categorias_unicas
             ], className="d-flex flex-wrap justify-content-center gap-1", id="category-buttons")
         ])
@@ -82,9 +82,10 @@ app.layout = dbc.Container([
      Output({"type": "category-button", "index": ALL}, "outline")],
     [Input({"type": "category-button", "index": ALL}, "n_clicks"),
      Input("categoria-chart", "clickData")],
-    [State({"type": "category-button", "index": ALL}, "id")]
+    [State({"type": "category-button", "index": ALL}, "id"),
+     State("categoria-chart", "clickData")]
 )
-def update_dashboard(btn_clicks, clickData, button_ids):
+def update_dashboard(btn_clicks, clickData, button_ids, previous_clickData):
     # Detectar selección desde el gráfico
     clicked_category = None
     if clickData and "points" in clickData:
@@ -93,9 +94,12 @@ def update_dashboard(btn_clicks, clickData, button_ids):
     # Manejo de categorías seleccionadas desde botones
     selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] % 2 != 0]
 
-    # Si se hace clic en el gráfico, sobrescribir la selección de botones
-    if clicked_category and clicked_category not in selected_categories:
-        selected_categories = [clicked_category]  # Reemplaza la selección
+    # Si se hace clic en el gráfico, agregar esa categoría a la selección
+    if clicked_category:
+        if clicked_category in selected_categories:
+            selected_categories.remove(clicked_category)  # Si ya estaba seleccionada, la quitamos
+        else:
+            selected_categories.append(clicked_category)  # Si no estaba, la agregamos
 
     filtered_df = df.copy()
     if selected_categories:
