@@ -8,12 +8,14 @@ from dash.dependencies import Input, Output, State, ALL
 # Cargar los datos
 df = pd.read_excel("FH_areas_interes.xlsx", sheet_name=0, engine="openpyxl")
 
-# Limpieza de datos
+# Obtener categorías únicas sin duplicados
 df["Categoría"] = df["Categoría"].str.strip()
+categorias_unicas = sorted(df["Categoría"].unique())
+
+# Convertir enlaces en texto clicable con icono
 df["Enlace"] = df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})" if pd.notna(x) else "")
 
-# Obtener categorías únicas y rango de fechas
-categorias_unicas = sorted(df["Categoría"].unique())
+# Obtener rango de fechas de los artículos
 min_year = df["Año - Volumen - Número"].str[:4].astype(int).min()
 max_year = df["Año - Volumen - Número"].str[:4].astype(int).max()
 rango_fechas = f"{min_year} - {max_year}"
@@ -22,13 +24,12 @@ rango_fechas = f"{min_year} - {max_year}"
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 server = app.server
 
-# Layout de la aplicación
+# Diseño de la aplicación
 app.layout = dbc.Container([
     
-    # Título y estadísticas
+    # Encabezado con título y estadísticas
     dbc.Row([
-        dbc.Col(html.H4("📚 Artículos de la Revista Farmacia Hospitalaria",
-                        className="text-left text-primary"), width=8),
+        dbc.Col(html.H4("📚 Artículos de la Revista Farmacia Hospitalaria", className="text-left text-primary"), width=8),
         dbc.Col(html.Div([
             html.Small(f"📅 Artículos desde {rango_fechas}", className="text-muted d-block"),
             html.Small(f"📄 Total: {len(df)} artículos", className="text-muted"),
@@ -46,7 +47,7 @@ app.layout = dbc.Container([
         ], className="d-flex flex-wrap justify-content-center gap-1"), width=12)
     ], className="mb-2"),
 
-    # Tabla de artículos
+    # Tabla con enlaces clicables
     dbc.Row([
         dbc.Col(dash_table.DataTable(
             id="articulos-table",
@@ -80,12 +81,11 @@ app.layout = dbc.Container([
     [State({"type": "category-button", "index": ALL}, "id")]
 )
 def update_dashboard(btn_clicks, clickData, button_ids):
-    # Inicializar selección si no hay clics
     if not btn_clicks:
         btn_clicks = [0] * len(button_ids)
 
-    # Selección de botones
-    selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] % 2 != 0]
+    # Selección de categorías desde los botones
+    selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] and btn_clicks[i] % 2 != 0]
 
     # Selección desde el gráfico
     if clickData and "points" in clickData:
@@ -96,7 +96,7 @@ def update_dashboard(btn_clicks, clickData, button_ids):
             selected_categories.append(clicked_category)
 
     # Filtrar datos
-    filtered_df = df[df["Categoría"].isin(selected_categories)] if selected_categories else df
+    filtered_df = df if not selected_categories else df[df["Categoría"].isin(selected_categories)]
 
     # Mostrar gráfico por fecha si hay solo una categoría
     if len(selected_categories) == 1:
