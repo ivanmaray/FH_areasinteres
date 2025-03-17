@@ -14,42 +14,41 @@ df["Enlace"] = df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})")
 # Obtener lista única de categorías
 categorias_unicas = sorted(df["Categoría"].unique())
 
+# Obtener rango de fechas de los artículos
+min_year = df["Año - Volumen - Número"].str[:4].astype(int).min()
+max_year = df["Año - Volumen - Número"].str[:4].astype(int).max()
+rango_fechas = f"{min_year} - {max_year}"
+
 # Inicializar la aplicación Dash con Bootstrap
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CYBORG])  # Puedes cambiar el tema
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])  # Estilo elegante
 server = app.server  # Necesario para Render
 
-# Diseño mejorado con Bootstrap y botones de categoría
+# Diseño mejorado con distribución limpia
 app.layout = dbc.Container([
     
-    # Encabezado con estilo
+    # Encabezado con título y estadísticas en una sola línea
     dbc.Row([
-        dbc.Col(html.H1("📚 Artículos de la Revista Farmacia Hospitalaria",
-                        className="text-center text-primary mb-4"), width=12)
-    ]),
+        dbc.Col(html.H3("📚 Artículos de la Revista Farmacia Hospitalaria",
+                        className="text-left text-primary"), width=8),
+        dbc.Col(html.Div([
+            html.Small(f"📅 Artículos desde {rango_fechas}", className="text-muted d-block"),
+            html.Small(f"📄 Total: {len(df)} artículos", className="text-muted"),
+        ], className="text-end"), width=4)
+    ], align="center", className="mb-3"),
 
-    # Tarjeta con estadísticas
-    dbc.Row([
-        dbc.Col(dbc.Card([
-            dbc.CardBody([
-                html.H4("📄 Total de Artículos", className="card-title"),
-                html.H2(f"{len(df)}", className="text-primary")
-            ])
-        ], color="dark", outline=True, className="mb-4"), width=4)
-    ], justify="center"),
-
-    # Botones de categorías en lugar de dropdown
-    html.H5("📂 Filtrar por Categoría:", className="text-center mt-3 text-light"),
+    # Botones de categorías compactos
+    html.H6("📂 Filtrar por Categoría:", className="text-center mt-2 text-secondary"),
     dbc.Row([
         dbc.Col([
             html.Div([
                 dbc.Button(category, id={"type": "category-button", "index": category},
-                           color="info", outline=True, className="m-1", n_clicks=0)
+                           color="secondary", outline=True, className="m-1 btn-sm", n_clicks=0)
                 for category in categorias_unicas
             ], className="d-flex flex-wrap justify-content-center")
         ])
-    ], className="mb-3"),
+    ], className="mb-2"),
 
-    # Tabla con diseño responsivo
+    # Tabla con diseño más compacto
     dbc.Row([
         dbc.Col(dash_table.DataTable(
             id="articulos-table",
@@ -60,14 +59,14 @@ app.layout = dbc.Container([
                 {"name": "Enlace", "id": "Enlace", "presentation": "markdown"},
             ],
             style_table={'overflowX': 'auto', 'width': '100%'},
-            style_cell={'textAlign': 'left', 'padding': '8px', 'whiteSpace': 'normal'},
-            style_header={'backgroundColor': '#007bff', 'color': 'white', 'fontWeight': 'bold'},
+            style_cell={'textAlign': 'left', 'padding': '6px', 'whiteSpace': 'normal', 'fontSize': '12px'},
+            style_header={'backgroundColor': '#0056b3', 'color': 'white', 'fontWeight': 'bold'},
             page_size=10,
             markdown_options={"link_target": "_blank"}
         ), width=12)
-    ]),
+    ], className="mb-4"),
 
-    # Gráfico alineado
+    # Gráfico mejor alineado
     dbc.Row([
         dbc.Col(dcc.Graph(id="categoria-chart"), width=12)
     ])
