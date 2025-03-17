@@ -27,9 +27,12 @@ server = app.server
 # Diseño de la aplicación
 app.layout = dbc.Container([
     
-    # Encabezado con título y estadísticas
+# Título con enlace y numero de articulos y fechas
     dbc.Row([
-        dbc.Col(html.H4("📚 Artículos de la Revista Farmacia Hospitalaria", className="text-left text-primary"), width=8),
+        dbc.Col(html.H4([
+            "📚 Artículos de la ",
+            html.A("Revista Farmacia Hospitalaria", href="https://www.revistafarmaciahospitalaria.es/", target="_blank", className="text-primary fw-bold text-decoration-none")
+        ], className="text-left"), width=8),
         dbc.Col(html.Div([
             html.Small(f"📅 Artículos desde {rango_fechas}", className="text-muted d-block"),
             html.Small(f"📄 Total: {len(df)} artículos", className="text-muted"),
