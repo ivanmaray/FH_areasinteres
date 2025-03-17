@@ -6,12 +6,12 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State, ALL
 
 # Cargar los datos
-df = pd.read_excel("FH_areas_interes.xlsx", sheet_name=0, engine="openpyxl")
+df = pd.read_excel("FH_areas_interes.xlsx", sheet_name="Sheet1", engine="openpyxl")
 
-# Limpieza de datos: eliminar espacios y normalizar las categorías
-df["Categoría"] = df["Categoría"].str.strip()
+# Hacer los enlaces clicables
+df["Enlace"] = df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})")
 
-# Obtener lista de categorías únicas (sin duplicados)
+# Obtener lista única de categorías
 categorias_unicas = sorted(df["Categoría"].unique())
 
 # Obtener rango de fechas de los artículos
@@ -28,7 +28,7 @@ app.layout = dbc.Container([
     
     # Encabezado con título y estadísticas en la esquina superior derecha
     dbc.Row([
-        dbc.Col(html.H4("📚 Artículos de la Revista Farmacia Hospitalaria",
+        dbc.Col(html.H3("📚 Artículos de la Revista Farmacia Hospitalaria",
                         className="text-left text-primary"), width=8),
         dbc.Col(html.Div([
             html.Small(f"📅 Artículos desde {rango_fechas}", className="text-muted d-block"),
@@ -36,17 +36,15 @@ app.layout = dbc.Container([
         ], className="text-end"), width=4)
     ], align="center", className="mb-3"),
 
-    # Botones de categorías sin duplicados
+    # Botones de categorías con resaltado dinámico
     html.H6("📂 Filtrar por Categoría:", className="text-center mt-2 text-secondary"),
     dbc.Row([
         dbc.Col([
             html.Div([
                 dbc.Button(category, id={"type": "category-button", "index": category},
-                           color="secondary", outline=True,
-                           className="m-1 px-2 py-1 btn-sm text-truncate",
-                           style={"fontSize": "11px", "minWidth": "80px", "maxWidth": "150px"})
-                for category in categorias_unicas  # Aseguramos que no hay duplicados
-            ], className="d-flex flex-wrap justify-content-center gap-1", id="category-buttons")
+                           color="secondary", outline=True, className="m-1 btn-sm", n_clicks=0)
+                for category in categorias_unicas
+            ], className="d-flex flex-wrap justify-content-center", id="category-buttons")
         ])
     ], className="mb-2"),
 
@@ -61,7 +59,7 @@ app.layout = dbc.Container([
                 {"name": "Enlace", "id": "Enlace", "presentation": "markdown"},
             ],
             style_table={'overflowX': 'auto', 'width': '100%'},
-            style_cell={'textAlign': 'left', 'padding': '4px', 'whiteSpace': 'normal', 'fontSize': '12px'},
+            style_cell={'textAlign': 'left', 'padding': '6px', 'whiteSpace': 'normal', 'fontSize': '12px'},
             style_header={'backgroundColor': '#0056b3', 'color': 'white', 'fontWeight': 'bold'},
             page_size=10,
             markdown_options={"link_target": "_blank"}
@@ -85,25 +83,25 @@ app.layout = dbc.Container([
     [State({"type": "category-button", "index": ALL}, "id")]
 )
 def update_dashboard(btn_clicks, clickData, button_ids):
-    # Lista de categorías seleccionadas desde los botones
+    # Detectar selección desde el gráfico
+    clicked_category = None
+    if clickData and "points" in clickData:
+        clicked_category = clickData["points"][0]["y"]  # Obtener categoría seleccionada en el gráfico
+
+    # Manejo de categorías seleccionadas desde botones
     selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] % 2 != 0]
 
-    # Si se ha hecho clic en el gráfico, seleccionar la categoría correspondiente
-    if clickData and "points" in clickData:
-        clicked_category = clickData["points"][0]["y"]
-        if clicked_category in selected_categories:
-            selected_categories.remove(clicked_category)  # Si ya estaba seleccionada, la quitamos
-        else:
-            selected_categories.append(clicked_category)  # Si no estaba, la agregamos
+    # Si se hace clic en el gráfico, sobrescribir la selección de botones
+    if clicked_category and clicked_category not in selected_categories:
+        selected_categories = [clicked_category]  # Reemplaza la selección
 
-    # Filtrar datos
     filtered_df = df.copy()
     if selected_categories:
         filtered_df = filtered_df[filtered_df["Categoría"].isin(selected_categories)]
 
     # Determinar qué gráfico mostrar
     if len(selected_categories) == 1:
-        # Gráfico de evolución de artículos por número de revista si solo hay 1 categoría seleccionada
+        # Si solo hay 1 categoría seleccionada, mostrar gráfico por número de revista
         time_counts = filtered_df["Año - Volumen - Número"].value_counts().reset_index()
         time_counts.columns = ["Número de Revista", "Número de Artículos"]
         time_counts = time_counts.sort_values(by="Número de Revista")
@@ -115,7 +113,7 @@ def update_dashboard(btn_clicks, clickData, button_ids):
                       template="plotly_white")
 
     else:
-        # Gráfico de barras por categoría si no hay selección o hay múltiples categorías
+        # Si no hay selección o hay múltiples categorías, mostrar gráfico de barras por categoría
         category_counts = df["Categoría"].value_counts().reset_index()
         category_counts.columns = ["Categoría", "Número de Artículos"]
         
