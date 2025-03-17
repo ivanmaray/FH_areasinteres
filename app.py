@@ -28,7 +28,7 @@ app.layout = dbc.Container([
     
     # Encabezado con título y estadísticas en la esquina superior derecha
     dbc.Row([
-        dbc.Col(html.H3("📚 Artículos de la Revista Farmacia Hospitalaria 📚",
+        dbc.Col(html.H3("📚 Artículos de la Revista Farmacia Hospitalaria",
                         className="text-left text-primary"), width=8),
         dbc.Col(html.Div([
             html.Small(f"📅 Artículos desde {rango_fechas}", className="text-muted d-block"),
@@ -89,8 +89,27 @@ def update_dashboard(btn_clicks, button_ids):
         filtered_df = filtered_df[filtered_df["Categoría"].isin(selected_categories)]
 
     # Determinar qué gráfico mostrar
-    if len(selected_categories) == 1:
-        # Si solo hay 1 categoría seleccionada, mostrar gráfico de artículos por número de revista
+    if len(selected_categories) == 0:
+        # Si no hay categorías seleccionadas, mostrar TODAS optimizando espacio
+        category_counts = df["Categoría"].value_counts().reset_index()
+        category_counts.columns = ["Categoría", "Número de Artículos"]
+        
+        fig = px.bar(category_counts,
+                     x="Número de Artículos", y="Categoría",
+                     title="📊 Número de Artículos por Categoría",
+                     orientation="h",  # Horizontal para mejor uso del espacio
+                     color="Número de Artículos",
+                     color_continuous_scale="Blues",
+                     template="plotly_white")
+
+        fig.update_layout(
+            yaxis={'categoryorder': 'total ascending'},  # Ordenar categorías de menor a mayor
+            margin=dict(l=50, r=20, t=50, b=50),  # Reducir márgenes para más espacio útil
+            height=700  # Ajustar altura para que se vea mejor
+        )
+
+    elif len(selected_categories) == 1:
+        # Si solo hay 1 categoría seleccionada, mostrar gráfico por número de revista
         time_counts = filtered_df["Año - Volumen - Número"].value_counts().reset_index()
         time_counts.columns = ["Número de Revista", "Número de Artículos"]
         time_counts = time_counts.sort_values(by="Número de Revista")
@@ -112,7 +131,7 @@ def update_dashboard(btn_clicks, button_ids):
                      color_continuous_scale="Blues",
                      template="plotly_white")
 
-    fig.update_layout(xaxis_tickangle=-45, margin=dict(l=20, r=20, t=50, b=50))
+        fig.update_layout(xaxis_tickangle=-45, margin=dict(l=20, r=20, t=50, b=50))
 
     # Cambiar color de botones seleccionados
     colors = ["primary" if button["index"] in selected_categories else "secondary" for button in button_ids]
