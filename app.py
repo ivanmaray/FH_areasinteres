@@ -34,17 +34,17 @@ app.layout = dbc.Container([
         ], className="text-end"), width=4)
     ], align="center", className="mb-3"),
 
-    # Botones de categorías compactos
+    # Botones de categorías compactos (CORREGIDO)
     html.H6("📂 Filtrar por Categoría:", className="text-center mt-2 text-secondary"),
     dbc.Row([
         dbc.Col([
             html.Div([
                 dbc.Button(category, id={"type": "category-button", "index": category},
                            color="secondary", outline=True,
-                           className="m-0 px-2 py-1 btn-sm text-truncate",  # Sin margen vertical
-                           style={"fontSize": "10px", "minWidth": "70px", "maxWidth": "130px"})
-                for category in categorias_unicas  # Evitamos duplicados
-            ], className="d-flex flex-wrap justify-content-center gap-0", id="category-buttons")  # Reducción de espacios
+                           className="m-1 px-2 py-1 btn-sm text-truncate",  # Restauramos margen m-1
+                           style={"fontSize": "11px", "minWidth": "80px", "maxWidth": "140px"})
+                for category in categorias_unicas  # Aseguramos que no hay duplicados
+            ], className="d-flex flex-wrap justify-content-center gap-1", id="category-buttons")  # Se restaura gap-1 para evitar superposición
         ])
     ], className="mb-2"),
 
