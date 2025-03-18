@@ -1,131 +1,93 @@
 import pandas as pd
 import plotly.express as px
 import dash
-import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output, State, ALL
+from dash.dependencies import Input, Output, State
+import dash_bootstrap_components as dbc
 
 # Cargar los datos
-df = pd.read_excel("FH_areas_interes.xlsx", sheet_name=0, engine="openpyxl")
+df = pd.read_excel("FH_areas_interes.xlsx")
 
-# Obtener categorías únicas sin duplicados
-df["Categoría"] = df["Categoría"].str.strip()
-categorias_unicas = sorted(df["Categoría"].unique())
-
-# Convertir enlaces en texto clicable con icono
-df["Enlace"] = df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})" if pd.notna(x) else "")
-
-# Obtener rango de fechas de los artículos
-min_year = df["Año - Volumen - Número"].str[:4].astype(int).min()
-max_year = df["Año - Volumen - Número"].str[:4].astype(int).max()
-rango_fechas = f"{min_year} - {max_year}"
-
-# Inicializar Dash con Bootstrap
+# Inicializar la aplicación Dash con Bootstrap para mejor diseño
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
-server = app.server
+server = app.server  # Necesario para despliegue
 
-# Diseño de la aplicación
+# Obtener categorías únicas
+categorias = df["Categoría"].unique()
+
+# Estilos para mejorar visualización
+BUTTON_STYLE = {
+    "margin": "5px", "padding": "5px 10px", "border-radius": "10px",
+    "cursor": "pointer", "border": "1px solid #007bff", "background-color": "white",
+    "color": "#007bff", "font-size": "12px", "font-weight": "bold"
+}
+BUTTON_ACTIVE_STYLE = BUTTON_STYLE.copy()
+BUTTON_ACTIVE_STYLE.update({"background-color": "#007bff", "color": "white"})
+
+# Layout de la app
 app.layout = dbc.Container([
-    
-# Título con enlace y numero de articulos y fechas
     dbc.Row([
-        dbc.Col(html.H4([
-            "📚 Artículos de la ",
-            html.A("Revista Farmacia Hospitalaria", href="https://www.revistafarmaciahospitalaria.es/", target="_blank", className="text-primary fw-bold text-decoration-none")
-        ], className="text-left"), width=8),
-        dbc.Col(html.Div([
-            html.Small(f"📅 Artículos desde {rango_fechas}", className="text-muted d-block"),
-            html.Small(f"📄 Total: {len(df)} artículos", className="text-muted"),
-        ], className="text-end"), width=4)
-    ], align="center", className="mb-3"),
+        dbc.Col(html.H4(["📚 ", html.A("Artículos de la Revista Farmacia Hospitalaria", href="https://www.revistafarmaciahospitalaria.es/", target="_blank", style={"color": "#007bff", "text-decoration": "none"})]), width=8),
+        dbc.Col(html.P(id="total-articulos", style={"text-align": "right", "font-size": "14px", "color": "gray"}), width=4),
+    ], className="mb-3"),
 
-    # Botones de categorías compactos
-    html.H6("📂 Filtrar por Categoría:", className="text-center mt-2 text-secondary"),
+    # Botones de filtro
     dbc.Row([
-        dbc.Col(html.Div([
-            dbc.Button(category, id={"type": "category-button", "index": category},
-                       color="secondary", outline=True, className="m-1 px-2 py-1 btn-sm text-truncate",
-                       style={"fontSize": "11px", "minWidth": "90px", "maxWidth": "140px"})
-            for category in categorias_unicas
-        ], className="d-flex flex-wrap justify-content-center gap-1"), width=12)
-    ], className="mb-2"),
+        dbc.Col([
+            html.Div([
+                html.Button(cat, id=f"btn-{cat}", n_clicks=0, style=BUTTON_STYLE) for cat in categorias
+            ], style={"display": "flex", "flex-wrap": "wrap"})
+        ])
+    ], className="mb-3"),
 
-    # Tabla con enlaces clicables
-    dbc.Row([
-        dbc.Col(dash_table.DataTable(
-            id="articulos-table",
-            columns=[
-                {"name": "Año - Volumen - Número", "id": "Año - Volumen - Número"},
-                {"name": "Título", "id": "Título"},
-                {"name": "Categoría", "id": "Categoría"},
-                {"name": "Enlace", "id": "Enlace", "presentation": "markdown"},
-            ],
-            style_table={'overflowX': 'auto', 'width': '100%'},
-            style_cell={'textAlign': 'left', 'padding': '4px', 'whiteSpace': 'normal', 'fontSize': '12px'},
-            style_header={'backgroundColor': '#0056b3', 'color': 'white', 'fontWeight': 'bold'},
-            page_size=10,
-            markdown_options={"link_target": "_blank"}
-        ), width=12)
-    ], className="mb-4"),
+    # Gráfico de artículos por categoría
+    dcc.Graph(id="categoria-chart"),
 
-    # Gráfico interactivo
-    dbc.Row([dbc.Col(dcc.Graph(id="categoria-chart", clickData=None), width=12)]),
-
+    # Tabla de artículos
+    dash_table.DataTable(
+        id="articulos-table",
+        columns=[
+            {"name": "Año - Volumen - Número", "id": "Año - Volumen - Número"},
+            {"name": "Título", "id": "Título"},
+            {"name": "Categoría", "id": "Categoría"},
+            {"name": "Ver", "id": "Enlace", "presentation": "markdown"},
+        ],
+        style_table={'overflowX': 'auto'},
+        style_cell={'textAlign': 'left', 'fontSize': '12px'},
+        style_header={'backgroundColor': '#007bff', 'color': 'white', 'fontWeight': 'bold'},
+        page_size=10,
+    )
 ], fluid=True)
 
-# Callback para filtrado
+
+# Callback para actualizar tabla y gráfico
 @app.callback(
     [Output("articulos-table", "data"),
      Output("categoria-chart", "figure"),
-     Output({"type": "category-button", "index": ALL}, "color"),
-     Output({"type": "category-button", "index": ALL}, "outline")],
-    [Input({"type": "category-button", "index": ALL}, "n_clicks"),
-     Input("categoria-chart", "clickData")],
-    [State({"type": "category-button", "index": ALL}, "id")]
+     Output("total-articulos", "children")],
+    [Input(f"btn-{cat}", "n_clicks") for cat in categorias],
+    prevent_initial_call=False
 )
-def update_dashboard(btn_clicks, clickData, button_ids):
-    if not btn_clicks:
-        btn_clicks = [0] * len(button_ids)
-
-    # Selección de categorías desde los botones
-    selected_categories = [button["index"] for i, button in enumerate(button_ids) if btn_clicks[i] and btn_clicks[i] % 2 != 0]
-
-    # Selección desde el gráfico
-    if clickData and "points" in clickData:
-        clicked_category = clickData["points"][0]["y"]
-        if clicked_category in selected_categories:
-            selected_categories.remove(clicked_category)
-        else:
-            selected_categories.append(clicked_category)
-
+def update_dashboard(*btn_clicks):
+    selected_categories = [categorias[i] for i, clicks in enumerate(btn_clicks) if clicks % 2 != 0]
+    
     # Filtrar datos
-    filtered_df = df if not selected_categories else df[df["Categoría"].isin(selected_categories)]
+    filtered_df = df[df["Categoría"].isin(selected_categories)] if selected_categories else df
 
-    # Mostrar gráfico por fecha si hay solo una categoría
+    # Construcción de tabla
+    filtered_df["Enlace"] = filtered_df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})")
+
+    # Construcción del gráfico
     if len(selected_categories) == 1:
-        time_counts = filtered_df["Año - Volumen - Número"].value_counts().reset_index()
-        time_counts.columns = ["Número de Revista", "Número de Artículos"]
-        time_counts = time_counts.sort_values(by="Número de Revista")
-
-        fig = px.line(time_counts, x="Número de Revista", y="Número de Artículos",
-                      title=f"📈 Evolución de {selected_categories[0]}",
-                      markers=True, template="plotly_white")
+        fig = px.histogram(filtered_df, x="Año - Volumen - Número", title=f"Artículos en {selected_categories[0]}", color_discrete_sequence=["#007bff"])
     else:
-        category_counts = df["Categoría"].value_counts().reset_index()
-        category_counts.columns = ["Categoría", "Número de Artículos"]
-        
-        fig = px.bar(category_counts, x="Número de Artículos", y="Categoría",
-                     title="📊 Artículos por Categoría",
-                     orientation="h", color="Número de Artículos",
-                     color_continuous_scale="Blues", template="plotly_white")
+        fig = px.bar(filtered_df["Categoría"].value_counts().reset_index(), x="index", y="Categoría",
+                     labels={"index": "Categoría", "Categoría": "Número de Artículos"},
+                     title="Número de Artículos por Categoría",
+                     color_discrete_sequence=["#007bff"])
+    
+    return filtered_df.to_dict("records"), fig, f"Total de artículos: {len(filtered_df)}"
 
-        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=700)
-
-    # Cambiar color de botones seleccionados
-    colors = ["primary" if button["index"] in selected_categories else "secondary" for button in button_ids]
-    outlines = [False if button["index"] in selected_categories else True for button in button_ids]
-
-    return filtered_df.to_dict("records"), fig, colors, outlines
 
 if __name__ == "__main__":
     app.run_server(debug=True)
