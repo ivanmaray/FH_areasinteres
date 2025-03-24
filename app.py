@@ -1,93 +1,188 @@
 import pandas as pd
 import plotly.express as px
 import dash
-from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
+from dash import dcc, html, dash_table
+from dash.dependencies import Input, Output, State, ALL
+import re
+import base64
+from io import BytesIO
 
-# Cargar los datos
-df = pd.read_excel("FH_areas_interes.xlsx")
+# Cargar datos desde el archivo corregido
+excel_path = "FH_areas_interes_final_corregido.xlsx"
+df_original = pd.read_excel(excel_path)
+df_original["Link"] = df_original["Link"].apply(lambda x: f"[🔗 Ver artículo]({x})" if pd.notna(x) else "")
 
-# Inicializar la aplicación Dash con Bootstrap para mejor diseño
+# Inicializar la app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
-server = app.server  # Necesario para despliegue
+server = app.server
 
-# Obtener categorías únicas
-categorias = df["Categoría"].unique()
-
-# Estilos para mejorar visualización
-BUTTON_STYLE = {
-    "margin": "5px", "padding": "5px 10px", "border-radius": "10px",
-    "cursor": "pointer", "border": "1px solid #007bff", "background-color": "white",
-    "color": "#007bff", "font-size": "12px", "font-weight": "bold"
+# Traducciones
+txt = {
+    "es": {
+        "titulo": "Artículos de la ",
+        "filtrar": "📂 Filtrar por Categoría:",
+        "articulos_desde": "📅 Artículos desde",
+        "total": "📄 Total: {} artículos",
+        "grafico_categorias": "📊 Artículos por Categoría",
+        "grafico_evolucion": "📈 Evolución de {}",
+    },
+    "en": {
+        "titulo": "Articles from ",
+        "filtrar": "📂 Filter by Category:",
+        "articulos_desde": "📅 Articles from",
+        "total": "📄 Total: {} articles",
+        "grafico_categorias": "📊 Articles by Category",
+        "grafico_evolucion": "📈 Evolution of {}",
+    }
 }
-BUTTON_ACTIVE_STYLE = BUTTON_STYLE.copy()
-BUTTON_ACTIVE_STYLE.update({"background-color": "#007bff", "color": "white"})
 
-# Layout de la app
-app.layout = dbc.Container([
+# Layout
+app.layout = dbc.Container(fluid=True, className="p-0", children=[
+
     dbc.Row([
-        dbc.Col(html.H4(["📚 ", html.A("Artículos de la Revista Farmacia Hospitalaria", href="https://www.revistafarmaciahospitalaria.es/", target="_blank", style={"color": "#007bff", "text-decoration": "none"})]), width=8),
-        dbc.Col(html.P(id="total-articulos", style={"text-align": "right", "font-size": "14px", "color": "gray"}), width=4),
-    ], className="mb-3"),
+        dbc.Col(html.Img(src="/assets/cover_ingles.png", style={"width": "100%", "display": "block"}), width=12)
+    ], className="mb-3 g-0"),
 
-    # Botones de filtro
     dbc.Row([
         dbc.Col([
-            html.Div([
-                html.Button(cat, id=f"btn-{cat}", n_clicks=0, style=BUTTON_STYLE) for cat in categorias
-            ], style={"display": "flex", "flex-wrap": "wrap"})
-        ])
-    ], className="mb-3"),
+            dcc.RadioItems(
+                id="idioma-selector",
+                options=[
+                    {"label": html.Span(["🇪🇸 Español"], style={"margin-right": "10px"}), "value": "es"},
+                    {"label": html.Span(["🇬🇧 English"]), "value": "en"}
+                ],
+                value="es",
+                inline=True,
+                labelStyle={"margin-right": "0 15px"},
+                inputStyle={"marginRight": "5px"},
+                className="text-center"
+            ),
+            dcc.Store(id="categorias-seleccionadas", data=[])
+        ], width=12, className="text-end pe-4")
+    ]),
 
-    # Gráfico de artículos por categoría
-    dcc.Graph(id="categoria-chart"),
+    dbc.Row([
+        dbc.Col(html.H4(id="titulo-cabecera", style={"paddingLeft": "20px"}), width=8),
+        dbc.Col(html.Div([
+            html.Small(id="rango-fechas", className="text-muted d-block"),
+            html.Small(id="total-articulos", className="text-muted"),
+        ], className="text-end", style={"paddingRight": "20px"}), width=4)
+    ], className="mb-3", align="center"),
 
-    # Tabla de artículos
-    dash_table.DataTable(
-        id="articulos-table",
-        columns=[
-            {"name": "Año - Volumen - Número", "id": "Año - Volumen - Número"},
-            {"name": "Título", "id": "Título"},
-            {"name": "Categoría", "id": "Categoría"},
-            {"name": "Ver", "id": "Enlace", "presentation": "markdown"},
-        ],
-        style_table={'overflowX': 'auto'},
-        style_cell={'textAlign': 'left', 'fontSize': '12px'},
-        style_header={'backgroundColor': '#007bff', 'color': 'white', 'fontWeight': 'bold'},
-        page_size=10,
-    )
-], fluid=True)
+    html.H6(id="label-filtrar", className="text-center mt-2 text-secondary"),
 
+    dbc.Row([
+        dbc.Col(html.Div(id="botones-categorias", className="d-flex flex-wrap justify-content-center gap-1"), width=12)
+    ], className="mb-2"),
 
-# Callback para actualizar tabla y gráfico
+    dbc.Row([
+        dbc.Col(dash_table.DataTable(
+            id="articulos-table",
+            columns=[
+                {"name": "Año - Volumen - Número", "id": "Año - Volumen - Número"},
+                {"name": "Título", "id": "Título"},
+                {"name": "Categoría", "id": "categoria"},
+                {"name": "Link", "id": "Link", "presentation": "markdown"},
+            ],
+            style_table={"overflowX": "auto", "width": "100%"},
+            style_cell={"textAlign": "left", "padding": "4px", "whiteSpace": "normal", "fontSize": "12px"},
+            style_header={"backgroundColor": "#86dade", "color": "black", "fontWeight": "bold"},
+            page_size=10,
+            markdown_options={"link_target": "_blank"}
+        ), width=12)
+    ], className="mb-4"),
+
+    dbc.Row([
+        dbc.Col(dcc.Graph(id="categoria-chart", clickData=None), width=12)
+    ])
+])
+
 @app.callback(
-    [Output("articulos-table", "data"),
-     Output("categoria-chart", "figure"),
-     Output("total-articulos", "children")],
-    [Input(f"btn-{cat}", "n_clicks") for cat in categorias],
-    prevent_initial_call=False
+    Output("categorias-seleccionadas", "data"),
+    Output("titulo-cabecera", "children"),
+    Output("rango-fechas", "children"),
+    Output("total-articulos", "children"),
+    Output("label-filtrar", "children"),
+    Output("botones-categorias", "children"),
+    Output("articulos-table", "data"),
+    Output("categoria-chart", "figure"),
+    Input("idioma-selector", "value"),
+    Input("categoria-chart", "clickData"),
+    Input({"type": "category-button", "index": ALL}, "n_clicks"),
+    State({"type": "category-button", "index": ALL}, "id"),
+    State("categorias-seleccionadas", "data")
 )
-def update_dashboard(*btn_clicks):
-    selected_categories = [categorias[i] for i, clicks in enumerate(btn_clicks) if clicks % 2 != 0]
-    
-    # Filtrar datos
-    filtered_df = df[df["Categoría"].isin(selected_categories)] if selected_categories else df
+def actualizar_dashboard(idioma, clickData, btn_clicks, button_ids, categorias_seleccionadas):
+    df = df_original[df_original["Idioma"] == idioma].copy()
+    col_categoria = "categoria" if idioma == "es" else "category"
+    df.rename(columns={col_categoria: "categoria_traducida"}, inplace=True)
 
-    # Construcción de tabla
-    filtered_df["Enlace"] = filtered_df["Enlace"].apply(lambda x: f"[🔗 Ver artículo]({x})")
+    categorias = sorted(df["categoria_traducida"].dropna().unique())
 
-    # Construcción del gráfico
-    if len(selected_categories) == 1:
-        fig = px.histogram(filtered_df, x="Año - Volumen - Número", title=f"Artículos en {selected_categories[0]}", color_discrete_sequence=["#007bff"])
+    selected = categorias_seleccionadas.copy()
+
+    if btn_clicks and button_ids:
+        for i, btn in enumerate(button_ids):
+            if btn_clicks[i] and btn_clicks[i] % 2 != 0:
+                cat = btn["index"]
+                if cat in selected:
+                    selected.remove(cat)
+                else:
+                    selected.append(cat)
+
+    if clickData and "points" in clickData:
+        clicked = clickData["points"][0]["y"]
+        if clicked in selected:
+            selected.remove(clicked)
+        else:
+            selected.append(clicked)
+
+    botones = []
+    for cat in categorias:
+        seleccionado = cat in selected
+        botones.append(
+            dbc.Button(
+                cat,
+                id={"type": "category-button", "index": cat},
+                title=cat,
+                color="primary" if seleccionado else "secondary",
+                outline=not seleccionado,
+                className="m-1 px-2 py-1 btn-sm text-truncate",
+                style={"fontSize": "11px", "minWidth": "90px", "maxWidth": "140px"}
+            )
+        )
+
+    df_filtrado = df if not selected else df[df["categoria_traducida"].isin(selected)]
+
+    min_year = df["Año - Volumen - Número"].str[:4].astype(int).min()
+    max_year = df["Año - Volumen - Número"].str[:4].astype(int).max()
+    rango = f"{txt[idioma]['articulos_desde']} {min_year} - {max_year}"
+    total = txt[idioma]["total"].format(len(df))
+
+    if len(selected) == 1:
+        counts = df_filtrado["Año - Volumen - Número"].value_counts().reset_index()
+        counts.columns = ["Número", "Artículos"]
+        fig = px.line(counts.sort_values(by="Número"), x="Número", y="Artículos",
+                      title=txt[idioma]["grafico_evolucion"].format(selected[0]), markers=True,
+                      template="plotly_white",
+                      color_discrete_sequence=["#cc007c"])
     else:
-        fig = px.bar(filtered_df["Categoría"].value_counts().reset_index(), x="index", y="Categoría",
-                     labels={"index": "Categoría", "Categoría": "Número de Artículos"},
-                     title="Número de Artículos por Categoría",
-                     color_discrete_sequence=["#007bff"])
-    
-    return filtered_df.to_dict("records"), fig, f"Total de artículos: {len(filtered_df)}"
+        counts = df["categoria_traducida"].value_counts().reset_index()
+        counts.columns = ["Categoría", "Artículos"]
+        fig = px.bar(counts, x="Artículos", y="Categoría",
+                     orientation="h",
+                     color="Artículos",
+                     title=txt[idioma]["grafico_categorias"],
+                     template="plotly_white",
+                     color_continuous_scale=["#ffffff", "#cc007c"])
+        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=700)
 
+    return selected, html.Span([
+        "📚 " + txt[idioma]["titulo"],
+        html.A("Revista Farmacia Hospitalaria", href="https://www.revistafarmaciahospitalaria.es/",
+               target="_blank", className="text-primary fw-bold text-decoration-none")
+    ]), rango, total, txt[idioma]["filtrar"], botones, df_filtrado.to_dict("records"), fig
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run_server(debug=True)
