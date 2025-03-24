@@ -139,19 +139,25 @@ def actualizar_dashboard(idioma, clickData, btn_clicks, button_ids, categorias_s
             selected.append(clicked)
 
     botones = []
-    for cat in categorias:
-        seleccionado = cat in selected
-        botones.append(
-            dbc.Button(
-                cat,
-                id={"type": "category-button", "index": cat},
-                title=cat,
-                color="primary" if seleccionado else "secondary",
-                outline=not seleccionado,
-                className="m-1 px-2 py-1 btn-sm text-truncate",
-                style={"fontSize": "11px", "minWidth": "90px", "maxWidth": "140px"}
-            )
+   for cat in categorias:
+    seleccionado = cat in selected
+    es_area_clinica = cat.startswith("Áreas clínicas")
+    ancho = "200px" if es_area_clinica else "140px"
+    botones.append(
+        dbc.Button(
+            cat,
+            id={"type": "category-button", "index": cat},
+            title=cat,
+            color="primary" if seleccionado else "secondary",
+            outline=not seleccionado,
+            className="m-1 px-2 py-1 btn-sm text-truncate",
+            style={
+                "fontSize": "11px",
+                "minWidth": "90px",
+                "maxWidth": ancho
+            }
         )
+    )
 
     df_filtrado = df if not selected else df[df["categoria_traducida"].isin(selected)]
 
