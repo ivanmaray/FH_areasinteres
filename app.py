@@ -82,7 +82,7 @@ app.layout = dbc.Container(fluid=True, className="p-0", children=[
             columns=[
                 {"name": "Año - Volumen - Número", "id": "Año - Volumen - Número"},
                 {"name": "Título", "id": "Título"},
-                {"name": "Categoría", "id": "categoria"},
+                {"name": "Categoría", "id": "categoria_traducida"},
                 {"name": "Link", "id": "Link", "presentation": "markdown"},
             ],
             style_table={"overflowX": "auto", "width": "100%"},
