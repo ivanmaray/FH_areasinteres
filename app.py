@@ -183,7 +183,10 @@ def actualizar_dashboard(idioma, clickData, btn_clicks, button_ids, categorias_s
                      template="plotly_white",
                      color_continuous_scale=["#ffffff", "#cc007c"])
         fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=700)
-
+   
+    # Eliminar duplicados en la lista de categorías seleccionadas
+    selected = list(dict.fromkeys(selected))
+    
     return selected, html.Span([
         "📚 " + txt[idioma]["titulo"],
         html.A("Revista Farmacia Hospitalaria", href="https://www.revistafarmaciahospitalaria.es/",
